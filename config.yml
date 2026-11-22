@@ -1,0 +1,64 @@
+# path-engine example configuration: sites, protected networks and watched pairs.
+# All names and addresses here describe a fictional network.
+
+# Site of a device by its name (first match wins). Used by the transit_site and
+# vm_gateway_other_site checks. Sites starting with "DC" are data centres:
+# transit through them is expected and is not reported.
+sites:
+  - {match: '^(Vega|VEGA)', site: Vega}
+  - {match: '^Annex', site: Annex}
+  - {match: '^Helix', site: Helix}
+  - {match: '(?i)gamma', site: Gamma}
+  - {match: '^(MARS_|Mars_|MKT-LicenseSRV)', site: DC-Mars}
+  - {match: '^H1_', site: DC-HostOne}
+  - {match: '^MKT-SWE', site: DC-HostTwo}
+  - {match: '^MKT-NIMBUS', site: DC-Nimbus}
+  - {match: '^MKT-PARTNER', site: Partner}
+
+# Hub sites: traffic between the other sites is meant to pass through them
+# (hub-and-spoke OSPF). Transit through a hub is not reported as non-optimal.
+core_sites: [Vega]
+
+# Default gateway of the hosts in a subnet. Needed where several routers have
+# an address in the same subnet: without it the first hop is Conflicting.
+# A /32 entry sets the gateway of a single host.
+subnet_gateways:
+  - {subnet: 10.20.0.0/24, gateway: 10.20.0.1}
+
+# External networks: behind a device that is not polled (a partner, somebody
+# else's site). The path ends on the last polled router, and the exit point is
+# taken from its routing table; the reverse path starts from the same point.
+# Without an entry the path breaks off as Unknown.
+external_networks:
+  - {prefix: 192.168.34.0/23, name: "Partner cloud"}
+
+# Networks whose traffic must not use a tunnel without IPsec
+# (the unencrypted_sensitive check).
+sensitive:
+  - {prefix: 192.168.31.16/28, name: "Backup server segment"}
+  - {prefix: 172.16.31.0/28, name: "DC-Mars backup portgroup"}
+  - {prefix: 172.16.32.0/28, name: "DC-Mars backup portgroup 2"}
+
+# Pairs whose path is computed continuously: path_watch_* metrics, the
+# asymmetric and transit_site checks, change history. src/dst is an IP address
+# or a DNS name.
+watch:
+  - {name: backup-hypervisor, src: 192.168.31.21, dst: 10.20.0.231}
+  - {name: backup-filesrv, src: 192.168.31.21, dst: 192.168.44.10}
+  - {name: backup-cloud, src: 192.168.31.21, dst: cloud.example.net}
+
+# Devices polled only for path computation: their informational findings
+# (dead_route, policy_without_lan) are hidden, warnings are still shown.
+quiet_devices: [GAMMA_CCR1009]
+
+# Accepted findings: known and deliberately left as they are. The finding stays
+# in the register marked "Accepted: <reason>" but is not counted as a warning.
+# check and device match exactly (empty device matches any), object is a
+# substring, until is YYYY-MM-DD inclusive; after that date the finding counts
+# again. Always set a review date.
+accepted: []
+#  - check: backup_route_active
+#    device: H1_TENANT_CHR
+#    object: 192.168.44.0/22
+#    reason: "the old router stays as a fallback until it is decommissioned"
+#    until: 2026-12-31
